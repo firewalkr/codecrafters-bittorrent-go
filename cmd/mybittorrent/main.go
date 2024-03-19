@@ -14,10 +14,12 @@ import (
 // - 5:hello -> hello
 // - 10:hello12345 -> hello12345
 func decodeBencode(bencodedString string) (interface{}, error) {
+	bencodedLength := len(bencodedString)
+
 	if unicode.IsDigit(rune(bencodedString[0])) {
 		var firstColonIndex int
 
-		for i := 0; i < len(bencodedString); i++ {
+		for i := 0; i < bencodedLength; i++ {
 			if bencodedString[i] == ':' {
 				firstColonIndex = i
 				break
@@ -32,8 +34,25 @@ func decodeBencode(bencodedString string) (interface{}, error) {
 		}
 
 		return bencodedString[firstColonIndex+1 : firstColonIndex+1+length], nil
+	} else if bencodedString[0] == 'i' && bencodedString[bencodedLength-1] == 'e' && bencodedLength > 2 {
+		possibleIntegerStr := bencodedString[1 : bencodedLength-1]
+
+		if possibleIntegerStr[0] == '-' && possibleIntegerStr[1] == '0' {
+			return "", fmt.Errorf("invalid integer, cannot have negative zero or zero-prefixed integers")
+		}
+
+		if possibleIntegerStr[0] == '0' && len(possibleIntegerStr) > 1 {
+			return "", fmt.Errorf("invalid integer, cannot have zero-prefixed integers")
+		}
+
+		integer, err := strconv.Atoi(possibleIntegerStr)
+		if err != nil {
+			return "", fmt.Errorf("failed to parse integer value %q: %s", possibleIntegerStr, err.Error())
+		}
+
+		return integer, nil
 	} else {
-		return "", fmt.Errorf("only strings are supported at the moment")
+		return "", fmt.Errorf("only strings and integers are supported at the moment")
 	}
 }
 
