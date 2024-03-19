@@ -6,94 +6,81 @@ import (
 
 func TestDecodeBencode(t *testing.T) {
 	testCases := []struct {
-		name     string
-		input    string
-		expected any
-		err      bool
+		name                string
+		input               string
+		expectedOutput      any
+		expectedInputLength int
+		err                 bool
 	}{
 		{
-			name:     "String",
-			input:    "5:hello",
-			expected: "hello",
-			err:      false,
+			name:                "String",
+			input:               "5:hello",
+			expectedOutput:      "hello",
+			expectedInputLength: 7,
+			err:                 false,
 		},
 		{
-			name:     "String with numbers",
-			input:    "10:hello12345",
-			expected: "hello12345",
-			err:      false,
+			name:                "String with numbers",
+			input:               "10:hello12345",
+			expectedOutput:      "hello12345",
+			expectedInputLength: 13,
+			err:                 false,
 		},
 		{
-			name:     "Integer",
-			input:    "i123e",
-			expected: 123,
-			err:      false,
+			name:                "Integer",
+			input:               "i123e",
+			expectedOutput:      123,
+			expectedInputLength: 5,
+			err:                 false,
 		},
 		{
-			name:     "Negative Integer",
-			input:    "i-123e",
-			expected: -123,
-			err:      false,
+			name:                "Negative Integer",
+			input:               "i-123e",
+			expectedOutput:      -123,
+			expectedInputLength: 6,
+			err:                 false,
 		},
 		{
-			name:     "Invalid Integer",
-			input:    "i-0e",
-			expected: "",
-			err:      true,
+			name:                "Invalid Integer",
+			input:               "i-0e",
+			expectedOutput:      "",
+			expectedInputLength: 0,
+			err:                 true,
 		},
 		{
-			name:     "Invalid Integer 2",
-			input:    "i01e",
-			expected: "",
-			err:      true,
+			name:                "Invalid Integer 2",
+			input:               "i01e",
+			expectedOutput:      "",
+			expectedInputLength: 0,
+			err:                 true,
 		},
 		{
-			name:     "Invalid Integer 3",
-			input:    "i-01e",
-			expected: "",
-			err:      true,
+			name:                "Invalid Integer 3",
+			input:               "i-01e",
+			expectedOutput:      "",
+			expectedInputLength: 0,
+			err:                 true,
 		},
 		{
-			name:     "Invalid Integer 4",
-			input:    "i01e",
-			expected: "",
-			err:      true,
+			name:                "List",
+			input:               "li-22e5:helloe",
+			expectedOutput:      List{-22, "hello"},
+			expectedInputLength: 14,
+			err:                 false,
 		},
 		{
-			name:     "Invalid Integer 5",
-			input:    "i-0e",
-			expected: "",
-			err:      true,
+			name:                "Missing terminator",
+			input:               "l",
+			expectedOutput:      "",
+			expectedInputLength: 0,
+			err:                 true,
 		},
 		{
-			name:     "Invalid Integer 6",
-			input:    "i-01e",
-			expected: "",
-			err:      true,
-		},
-		{
-			name:     "Invalid Integer 7",
-			input:    "i-01e",
-			expected: "",
-			err:      true,
-		},
-		{
-			name:     "Invalid Integer 8",
-			input:    "i-01e",
-			expected: "",
-			err:      true,
-		},
-		{
-			name:     "Invalid Integer 9",
-			input:    "i-01e",
-			expected: "",
-			err:      true,
-		},
-		{
-			name:     "Invalid Integer 10",
-			input:    "i-01e",
-			expected: "",
-			err:      true,
+			name:                "List with elements but missing terminator",
+			input:               "li-22e5:helloi5e",
+			expectedOutput:      "",
+			expectedInputLength: 0,
+			err:                 true,
 		},
 	}
 	for _, tc := range testCases {
@@ -107,8 +94,22 @@ func TestDecodeBencode(t *testing.T) {
 				if err != nil {
 					t.Fatalf("unexpected error: %s", err)
 				}
-				if actual != tc.expected {
-					t.Fatalf("expected %v, got %v", tc.expected, actual)
+				if list, ok := actual.Output.(List); ok {
+					if len(list) != len(tc.expectedOutput.(List)) {
+						t.Fatalf("expected output %v, got %v", tc.expectedOutput, actual.Output)
+					}
+					for i := 0; i < len(list); i++ {
+						if list[i] != tc.expectedOutput.(List)[i] {
+							t.Fatalf("expected output %v, got %v", tc.expectedOutput, actual.Output)
+						}
+					}
+					return
+				}
+				if actual.Output != tc.expectedOutput {
+					t.Fatalf("expected output %v, got %v", tc.expectedOutput, actual.Output)
+				}
+				if actual.InputLength != tc.expectedInputLength {
+					t.Fatalf("expected detected input length %d, got %d", tc.expectedInputLength, actual.InputLength)
 				}
 			}
 		})

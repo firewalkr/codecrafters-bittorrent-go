@@ -23,7 +23,7 @@ func main() {
 			return
 		}
 
-		jsonOutput, _ := json.Marshal(decoded)
+		jsonOutput, _ := json.Marshal(decoded.Output)
 		fmt.Println(string(jsonOutput))
 	} else {
 		fmt.Println("Unknown command: " + command)
