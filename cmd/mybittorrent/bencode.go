@@ -2,6 +2,8 @@ package main
 
 import (
 	"errors"
+	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
@@ -14,8 +16,10 @@ var ErrZeroPrefixedInteger = errors.New("invalid integer, cannot have zero-prefi
 var ErrInvalidInteger = errors.New("unparseable integer")
 var ErrUnterminatedDictionary = errors.New("found incomplete dictionary")
 var ErrInvalidDictionaryKey = errors.New("invalid dictionary key, must be string")
+var ErrUnsupportedType = errors.New("type is unsupported by bencode")
 
-type List []any
+type BencodeList []any
+type BencodeMap map[string]any
 
 type DecodedToken struct {
 	Output      any
@@ -73,7 +77,7 @@ func DecodeBencode(bencodedString string) (*DecodedToken, error) {
 			InputLength: integerEndIndex + 1,
 		}, nil
 	} else if bencodedString[0] == 'l' {
-		list := List{}
+		list := BencodeList{}
 		if len(bencodedString) < 2 {
 			return nil, ErrUnterminatedList
 		}
@@ -102,7 +106,7 @@ func DecodeBencode(bencodedString string) (*DecodedToken, error) {
 			InputLength: totalInputLength,
 		}, nil
 	} else if bencodedString[0] == 'd' {
-		resultMap := map[string]any{}
+		resultMap := BencodeMap{}
 		if len(bencodedString) < 2 {
 			return nil, ErrUnterminatedDictionary
 		}
@@ -143,4 +147,59 @@ func DecodeBencode(bencodedString string) (*DecodedToken, error) {
 	} else {
 		return nil, ErrUnsupported
 	}
+}
+
+func EncodeBencode(input any) (string, error) {
+	if str, isString := input.(string); isString {
+		if str == "" {
+			return "", nil
+		}
+		return fmt.Sprintf("%d:%s", len(str), str), nil
+	}
+
+	if intNumber, isInt := input.(int); isInt {
+		return fmt.Sprintf("i%de", intNumber), nil
+	}
+
+	if list, isList := input.(BencodeList); isList {
+		b := strings.Builder{}
+		b.WriteRune('l')
+		for _, elem := range list {
+			encodedElem, err := EncodeBencode(elem)
+			if err != nil {
+				return "", err
+			}
+			b.WriteString(encodedElem)
+		}
+		b.WriteRune('e')
+		return b.String(), nil
+	}
+
+	if aMap, isMap := input.(BencodeMap); isMap {
+		b := strings.Builder{}
+		b.WriteRune('d')
+
+		keys := []string{}
+		for k := range aMap {
+			keys = append(keys, k)
+		}
+		slices.Sort(keys)
+
+		for _, k := range keys {
+			encodedKey, err := EncodeBencode(k)
+			if err != nil {
+				return "", err
+			}
+			b.WriteString(encodedKey)
+			encodedValue, err := EncodeBencode(aMap[k])
+			if err != nil {
+				return "", err
+			}
+			b.WriteString(encodedValue)
+		}
+		b.WriteRune('e')
+		return b.String(), nil
+	}
+
+	return "", ErrUnsupportedType
 }

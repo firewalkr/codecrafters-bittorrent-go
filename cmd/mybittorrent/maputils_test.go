@@ -6,7 +6,7 @@ import (
 
 type getStringValueTestCase struct {
 	name          string
-	inputMap      map[string]any
+	inputMap      BencodeMap
 	inputKey      string
 	expectedValue string
 	err           error
@@ -16,21 +16,21 @@ func TestGetStringValue(t *testing.T) {
 	testCases := []*getStringValueTestCase{
 		{
 			name:          "missing map key",
-			inputMap:      map[string]any{},
+			inputMap:      BencodeMap{},
 			inputKey:      "testkey",
 			expectedValue: "",
 			err:           ErrMissingMapKey,
 		},
 		{
 			name:          "returns value for provided key",
-			inputMap:      map[string]any{"testkey": "testvalue"},
+			inputMap:      BencodeMap{"testkey": "testvalue"},
 			inputKey:      "testkey",
 			expectedValue: "testvalue",
 			err:           nil,
 		},
 		{
 			name:          "errors out if value is not string",
-			inputMap:      map[string]any{"testkey": 123},
+			inputMap:      BencodeMap{"testkey": 123},
 			inputKey:      "testkey",
 			expectedValue: "",
 			err:           ErrMapValueIsNotString,
@@ -60,9 +60,9 @@ func TestGetStringValue(t *testing.T) {
 
 type getMapValueTestCase struct {
 	name          string
-	inputMap      map[string]any
+	inputMap      BencodeMap
 	inputKey      string
-	expectedValue map[string]any
+	expectedValue BencodeMap
 	err           error
 }
 
@@ -70,21 +70,21 @@ func TestGetMapValue(t *testing.T) {
 	testCases := []*getMapValueTestCase{
 		{
 			name:          "missing map key",
-			inputMap:      map[string]any{},
+			inputMap:      BencodeMap{},
 			inputKey:      "testkey",
 			expectedValue: nil,
 			err:           ErrMissingMapKey,
 		},
 		{
 			name:          "returns value for provided key",
-			inputMap:      map[string]any{"testkey": map[string]any{"innerkey": 123}},
+			inputMap:      BencodeMap{"testkey": BencodeMap{"innerkey": 123}},
 			inputKey:      "testkey",
-			expectedValue: map[string]any{"innerkey": 123},
+			expectedValue: BencodeMap{"innerkey": 123},
 			err:           nil,
 		},
 		{
 			name:          "errors out if value is not map",
-			inputMap:      map[string]any{"testkey": 123},
+			inputMap:      BencodeMap{"testkey": 123},
 			inputKey:      "testkey",
 			expectedValue: nil,
 			err:           ErrMapValueIsNotMap,
@@ -112,7 +112,7 @@ func TestGetMapValue(t *testing.T) {
 
 type getIntValueTestCase struct {
 	name          string
-	inputMap      map[string]any
+	inputMap      BencodeMap
 	inputKey      string
 	expectedValue int
 	err           error
@@ -122,21 +122,21 @@ func TestGetIntValue(t *testing.T) {
 	testCases := []*getIntValueTestCase{
 		{
 			name:          "missing map key",
-			inputMap:      map[string]any{},
+			inputMap:      BencodeMap{},
 			inputKey:      "testkey",
 			expectedValue: 0,
 			err:           ErrMissingMapKey,
 		},
 		{
 			name:          "returns value for provided key",
-			inputMap:      map[string]any{"testkey": 123},
+			inputMap:      BencodeMap{"testkey": 123},
 			inputKey:      "testkey",
 			expectedValue: 123,
 			err:           nil,
 		},
 		{
 			name:          "errors out if value is not int",
-			inputMap:      map[string]any{"testkey": "not an int"},
+			inputMap:      BencodeMap{"testkey": "not an int"},
 			inputKey:      "testkey",
 			expectedValue: 0,
 			err:           ErrMapValueIsNotInt,

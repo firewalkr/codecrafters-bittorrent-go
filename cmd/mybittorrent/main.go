@@ -3,6 +3,7 @@ package main
 import (
 	// Uncomment this line to pass the first stage
 
+	"crypto/sha1"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -37,7 +38,7 @@ func main() {
 			return
 		}
 
-		if decodedMap, ok := decoded.Output.(map[string]any); ok {
+		if decodedMap, ok := decoded.Output.(BencodeMap); ok {
 			announce, err := GetStringValue(decodedMap, "announce")
 			if err != nil {
 				fmt.Println(err.Error())
@@ -56,8 +57,20 @@ func main() {
 				return
 			}
 
+			encodedInfo, err := EncodeBencode(infoMap)
+			if err != nil {
+				fmt.Println(err.Error())
+				return
+			}
+
 			fmt.Printf("Tracker URL: %s\n", announce)
 			fmt.Printf("Length: %d\n", infoFileLength)
+
+			hasher := sha1.New()
+			hasher.Write([]byte(encodedInfo))
+			sum := hasher.Sum(nil)
+
+			fmt.Printf("Info Hash: %s\n", fmt.Sprintf("%x", sum))
 
 		} else {
 			fmt.Println("expected top level dict")

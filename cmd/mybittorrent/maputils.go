@@ -7,7 +7,7 @@ var ErrMapValueIsNotString = errors.New("value obtained is not a string")
 var ErrMapValueIsNotMap = errors.New("value obtained is not a map")
 var ErrMapValueIsNotInt = errors.New("value obtained is not an int")
 
-func GetStringValue(m map[string]any, key string) (string, error) {
+func GetStringValue(m BencodeMap, key string) (string, error) {
 	val, keyExists := m[key]
 	if !keyExists {
 		return "", ErrMissingMapKey
@@ -21,13 +21,13 @@ func GetStringValue(m map[string]any, key string) (string, error) {
 	return stringValue, nil
 }
 
-func GetMapValue(m map[string]any, key string) (map[string]any, error) {
+func GetMapValue(m BencodeMap, key string) (BencodeMap, error) {
 	val, keyExists := m[key]
 	if !keyExists {
 		return nil, ErrMissingMapKey
 	}
 
-	mapValue, isValueMap := val.(map[string]any)
+	mapValue, isValueMap := val.(BencodeMap)
 	if !isValueMap {
 		return nil, ErrMapValueIsNotMap
 	}
@@ -35,7 +35,7 @@ func GetMapValue(m map[string]any, key string) (map[string]any, error) {
 	return mapValue, nil
 }
 
-func GetIntValue(m map[string]any, key string) (int, error) {
+func GetIntValue(m BencodeMap, key string) (int, error) {
 	val, keyExists := m[key]
 	if !keyExists {
 		return 0, ErrMissingMapKey
