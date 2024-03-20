@@ -1,17 +1,20 @@
 package main
 
 import (
+	"fmt"
 	"testing"
 )
 
+type testCase struct {
+	name                string
+	input               string
+	expectedOutput      any
+	expectedInputLength int
+	err                 error
+}
+
 func TestDecodeBencode(t *testing.T) {
-	testCases := []struct {
-		name                string
-		input               string
-		expectedOutput      any
-		expectedInputLength int
-		err                 error
-	}{
+	testCases := []*testCase{
 		{
 			name:                "String",
 			input:               "5:hello",
@@ -124,6 +127,13 @@ func TestDecodeBencode(t *testing.T) {
 			expectedInputLength: 0,
 			err:                 ErrInvalidDictionaryKey,
 		},
+		{
+			name:                "Decodes maps as values of maps",
+			input:               "d3:keyi23e6:mapkeyd9:insidekeyi987eee",
+			expectedOutput:      map[string]any{"key": 23, "mapkey": map[string]any{"insidekey": 987}},
+			expectedInputLength: 37,
+			err:                 nil,
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -150,15 +160,8 @@ func TestDecodeBencode(t *testing.T) {
 					}
 					return
 				}
-				if dict, ok := actual.Output.(map[string]any); ok {
-					if len(dict) != len(tc.expectedOutput.(map[string]any)) {
-						t.Fatalf("expected output %v, got %v", tc.expectedOutput, actual.Output)
-					}
-					for k, v := range dict {
-						if v != tc.expectedOutput.(map[string]any)[k] {
-							t.Fatalf("while parsing map, expected value %v for key %q, but got value %v instead", tc.expectedOutput.(map[string]any)[k], k, v)
-						}
-					}
+				if expectedMap, isMapExpected := tc.expectedOutput.(map[string]any); isMapExpected {
+					compareMaps(t, actual.Output.(map[string]any), expectedMap)
 					if actual.InputLength != tc.expectedInputLength {
 						t.Fatalf("expected detected input length %d, got %d", tc.expectedInputLength, actual.InputLength)
 					}
@@ -172,5 +175,27 @@ func TestDecodeBencode(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func compareMaps(t *testing.T, actualMap map[string]any, expectedMap map[string]any) {
+	t.Helper()
+
+	fmt.Println("here")
+
+	if len(actualMap) != len(expectedMap) {
+		t.Fatalf("different length maps. expected output %v, got %v", expectedMap, actualMap)
+	}
+	for k, v := range expectedMap {
+		// if v itself is also a map
+		if mapValue, valueIsMap := v.(map[string]any); valueIsMap {
+			compareMaps(t, actualMap[k].(map[string]any), mapValue)
+			continue
+		}
+		// if it's another type of value
+		// FIXME: this will break for list values too. need to generalise these comparisons
+		if v != actualMap[k] {
+			t.Fatalf("while parsing map, expected value %v for key %q, but got value %v instead", v, k, actualMap[k])
+		}
 	}
 }

@@ -1,13 +1,10 @@
 package main
 
 import (
-	// Uncomment this line to pass the first stage
-
 	"errors"
 	"strconv"
 	"strings"
 	"unicode"
-	// bencode "github.com/jackpal/bencode-go" // Available if you need it!
 )
 
 var ErrUnsupported = errors.New("only strings and integers are supported at the moment")
