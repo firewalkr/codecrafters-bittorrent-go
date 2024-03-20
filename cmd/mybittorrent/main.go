@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -57,6 +58,30 @@ func main() {
 				return
 			}
 
+			pieceLength, err := GetIntValue(infoMap, "piece length")
+			if err != nil {
+				fmt.Println(err.Error())
+				return
+			}
+
+			piecesString, err := GetStringValue(infoMap, "pieces")
+			if err != nil {
+				fmt.Println(err.Error())
+				return
+			}
+
+			piecesBytes := []byte(piecesString)
+			piecesFullLength := len(piecesBytes)
+			if piecesFullLength%20 != 0 {
+				fmt.Printf("Invalid piece hashes length: %d\n", piecesFullLength)
+				return
+			}
+
+			piecesHashes := []string{}
+			for i := 0; i < piecesFullLength/20; i++ {
+				piecesHashes = append(piecesHashes, fmt.Sprintf("%x", piecesBytes[i*20:(i+1)*20]))
+			}
+
 			encodedInfo, err := EncodeBencode(infoMap)
 			if err != nil {
 				fmt.Println(err.Error())
@@ -71,7 +96,8 @@ func main() {
 			sum := hasher.Sum(nil)
 
 			fmt.Printf("Info Hash: %s\n", fmt.Sprintf("%x", sum))
-
+			fmt.Printf("Piece Length: %d\n", pieceLength)
+			fmt.Printf("Piece Hashes:\n%s\n", strings.Join(piecesHashes, "\n"))
 		} else {
 			fmt.Println("expected top level dict")
 			return
