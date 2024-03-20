@@ -3,12 +3,20 @@ package main
 import (
 	// Uncomment this line to pass the first stage
 
-	"fmt"
+	"errors"
 	"strconv"
 	"strings"
 	"unicode"
 	// bencode "github.com/jackpal/bencode-go" // Available if you need it!
 )
+
+var ErrUnsupported = errors.New("only strings and integers are supported at the moment")
+var ErrUnterminatedList = errors.New("found incomplete list")
+var ErrNegativeZero = errors.New("cannot have negative zero")
+var ErrZeroPrefixedInteger = errors.New("invalid integer, cannot have zero-prefixed integers")
+var ErrInvalidInteger = errors.New("unparseable integer")
+var ErrUnterminatedDictionary = errors.New("found incomplete dictionary")
+var ErrInvalidDictionaryKey = errors.New("invalid dictionary key, must be string")
 
 type List []any
 
@@ -21,12 +29,10 @@ type DecodedToken struct {
 // - 5:hello -> hello
 // - 10:hello12345 -> hello12345
 func DecodeBencode(bencodedString string) (*DecodedToken, error) {
-	bencodedLength := len(bencodedString)
-
 	if unicode.IsDigit(rune(bencodedString[0])) {
 		var firstColonIndex int
 
-		for i := 0; i < bencodedLength; i++ {
+		for i := 0; i < len(bencodedString); i++ {
 			if bencodedString[i] == ':' {
 				firstColonIndex = i
 				break
@@ -50,16 +56,19 @@ func DecodeBencode(bencodedString string) (*DecodedToken, error) {
 		possibleIntegerStr := bencodedString[1:integerEndIndex]
 
 		if possibleIntegerStr[0] == '-' && possibleIntegerStr[1] == '0' {
-			return nil, fmt.Errorf("invalid integer, cannot have negative zero or zero-prefixed integers")
+			if len(possibleIntegerStr) > 2 && unicode.IsDigit(rune(possibleIntegerStr[2])) {
+				return nil, ErrZeroPrefixedInteger
+			}
+			return nil, ErrNegativeZero
 		}
 
 		if possibleIntegerStr[0] == '0' && len(possibleIntegerStr) > 1 {
-			return nil, fmt.Errorf("invalid integer, cannot have zero-prefixed integers")
+			return nil, ErrZeroPrefixedInteger
 		}
 
 		integer, err := strconv.Atoi(possibleIntegerStr)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse integer value %q: %s", possibleIntegerStr, err.Error())
+			return nil, ErrInvalidInteger
 		}
 
 		return &DecodedToken{
@@ -68,15 +77,15 @@ func DecodeBencode(bencodedString string) (*DecodedToken, error) {
 		}, nil
 	} else if bencodedString[0] == 'l' {
 		list := List{}
-		if bencodedLength < 2 {
-			return nil, fmt.Errorf("found incomplete list")
+		if len(bencodedString) < 2 {
+			return nil, ErrUnterminatedList
 		}
 
 		totalInputLength := 1
 		nextString := bencodedString[1:]
 		for {
 			if len(nextString) == 0 {
-				return nil, fmt.Errorf("list with elements but missing terminator")
+				return nil, ErrUnterminatedList
 			}
 			if nextString[0] == 'e' {
 				totalInputLength += 1
@@ -95,7 +104,46 @@ func DecodeBencode(bencodedString string) (*DecodedToken, error) {
 			Output:      list,
 			InputLength: totalInputLength,
 		}, nil
+	} else if bencodedString[0] == 'd' {
+		resultMap := map[string]any{}
+		if len(bencodedString) < 2 {
+			return nil, ErrUnterminatedDictionary
+		}
+		expectingKeyOrTerminator := true
+		currentKey := ""
+		nextString := bencodedString[1:]
+		totalInputLength := 1
+		for {
+			if len(nextString) == 0 {
+				return nil, ErrUnterminatedDictionary
+			}
+			if !expectingKeyOrTerminator && nextString[0] == 'e' {
+				return nil, ErrUnterminatedDictionary
+			}
+			if nextString[0] == 'e' {
+				totalInputLength++
+				break
+			}
+			decodedToken, err := DecodeBencode(nextString)
+			if err != nil {
+				return nil, err
+			}
+			if expectingKeyOrTerminator {
+				maybeKey, isString := decodedToken.Output.(string)
+				if !isString {
+					return nil, ErrInvalidDictionaryKey
+				}
+				currentKey = maybeKey
+				expectingKeyOrTerminator = false
+			} else {
+				resultMap[currentKey] = decodedToken.Output
+				expectingKeyOrTerminator = true
+			}
+			totalInputLength += decodedToken.InputLength
+			nextString = nextString[decodedToken.InputLength:]
+		}
+		return &DecodedToken{Output: resultMap, InputLength: totalInputLength}, nil
 	} else {
-		return nil, fmt.Errorf("only strings and integers are supported at the moment")
+		return nil, ErrUnsupported
 	}
 }
