@@ -3,11 +3,13 @@ package main
 import (
 	// Uncomment this line to pass the first stage
 
+	"bytes"
 	"crypto/sha1"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -124,8 +126,79 @@ func main() {
 			peerURLs = append(peerURLs, strings.Join(ipParts, ".")+":"+strconv.Itoa(port))
 		}
 
-		fmt.Printf("%s", strings.Join(peerURLs, "\n"))
+		fmt.Println(strings.Join(peerURLs, "\n"))
+	} else if command == "handshake" {
+		filename := os.Args[2]
+		peerAddress := os.Args[3]
+		// peerParts := strings.Split(peerAddress, ":")
+		// peerIP, peerPort := peerParts[0], peerParts[1]
 
+		torrentFile, err := ParseTorrent(filename)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
+		tcpConn, err := net.Dial("tcp", peerAddress)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+		defer tcpConn.Close()
+
+		handshake := make([]byte, 68)
+		handshake[0] = 19
+		copy(handshake[1:20], []byte("BitTorrent protocol"))
+		copy(handshake[20:28], []byte{0, 0, 0, 0, 0, 0, 0, 0})
+		copy(handshake[28:48], torrentFile.Info.Sha1Sum())
+		copy(handshake[48:68], []byte(PeerID))
+
+		// numBytesWritten, err := io.Copy(tcpConn, bytes.NewReader(handshake))
+		// if err != nil {
+		// 	fmt.Println("Error sending data:", err)
+		// 	return
+		// }
+
+		numBytesWritten, err := tcpConn.Write(handshake)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
+		if numBytesWritten != 68 {
+			fmt.Printf("didn't write full ack. num bytes written: %d", numBytesWritten)
+			return
+		}
+
+		ack := make([]byte, 68)
+
+		numBytesRead, err := io.ReadAtLeast(tcpConn, ack, 68)
+
+		// tcpConn.SetDeadline(time.Now().Add(5 * time.Second))
+		// numBytesRead, err := tcpConn.Read(ack)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
+		if numBytesRead != 68 {
+			fmt.Printf("wrong ack length: %d\n", numBytesRead)
+			return
+		}
+
+		if !bytes.Equal(handshake[0:20], ack[0:20]) {
+			fmt.Printf("invalid handshake ack header: %v\n", ack[0:20])
+			return
+		}
+
+		if !bytes.Equal(ack[28:48], handshake[28:48]) {
+			fmt.Println("invalid info hash in handshake ack")
+			return
+		}
+
+		trackerPeerID := ack[48:68]
+
+		fmt.Printf("Peer ID: %x\n", trackerPeerID)
 	} else {
 		fmt.Println("Unknown command: " + command)
 		os.Exit(1)
