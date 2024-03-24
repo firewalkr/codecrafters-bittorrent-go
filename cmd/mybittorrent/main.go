@@ -5,204 +5,70 @@ import (
 
 	"bytes"
 	"crypto/sha1"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net"
-	"net/http"
-	"net/url"
 	"os"
-	"strconv"
-	"strings"
+
+	"github.com/spf13/cobra"
 )
 
 const PeerID = "99887766554433221100"
 
+var HandshakeHeader = append([]byte{19}, []byte("BitTorrent protocol")...)
+
+var rootCmd = &cobra.Command{}
+
 func main() {
-	command := os.Args[1]
 
-	if command == "decode" {
-		bencodedValue := os.Args[2]
-
-		decoded, err := DecodeBencode(bencodedValue)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-
-		jsonOutput, _ := json.Marshal(decoded.Output)
-		fmt.Println(string(jsonOutput))
-	} else if command == "info" {
-		filename := os.Args[2]
-
-		torrent, err := ParseTorrent(filename)
-		if err != nil {
-			fmt.Println(err.Error())
-			return
-		}
-
-		fmt.Printf("Tracker URL: %s\n", torrent.Announce)
-		fmt.Printf("Length: %d\n", torrent.Info.Length)
-
-		infoSha1Sum := torrent.Info.Sha1Sum()
-
-		fmt.Printf("Info Hash: %s\n", fmt.Sprintf("%x", infoSha1Sum))
-		fmt.Printf("Piece Length: %d\n", torrent.Info.PieceLength)
-
-		piecesHashes := torrent.Info.PieceHashes()
-		fmt.Printf("Piece Hashes:\n%s\n", strings.Join(piecesHashes, "\n"))
-
-	} else if command == "peers" {
-		filename := os.Args[2]
-
-		torrent, err := ParseTorrent(filename)
-		if err != nil {
-			fmt.Println(err.Error())
-			return
-		}
-
-		httpClient := &http.Client{}
-
-		trackerURL, err := url.Parse(torrent.Announce)
-		if err != nil {
-			fmt.Println("invalid tracker URL")
-			return
-		}
-		queryParams := url.Values{}
-		queryParams.Add("info_hash", string(torrent.Info.Sha1Sum()))
-		queryParams.Add("peer_id", PeerID)
-		queryParams.Add("port", "6881")
-		queryParams.Add("uploaded", "0")
-		queryParams.Add("downloaded", "0")
-		queryParams.Add("left", strconv.Itoa(torrent.Info.Length))
-		queryParams.Add("compact", "1")
-		trackerURL.RawQuery = queryParams.Encode()
-
-		httpResponse, err := httpClient.Get(trackerURL.String())
-		if err != nil {
-			fmt.Printf("http error calling tracker: %s\n", err.Error())
-			return
-		}
-		defer httpResponse.Body.Close()
-		body, err := io.ReadAll(httpResponse.Body)
-		if err != nil {
-			fmt.Printf("http error reading tracker response body: %s\n", err.Error())
-			return
-		}
-
-		decodedBody, err := DecodeBencode(string(body))
-		if err != nil {
-			fmt.Println(err.Error())
-			return
-		}
-
-		responseMap, isMap := decodedBody.Output.(BencodeMap)
-		if !isMap {
-			fmt.Println("failed to obtain map from tracker response")
-			return
-		}
-
-		peerListString, err := GetStringValue(responseMap, "peers")
-		if err != nil {
-			fmt.Println("failed to read peer list as string")
-			return
-		}
-
-		peerListBytes := []byte(peerListString)
-		if len(peerListBytes)%6 != 0 {
-			fmt.Println("Invalid compact peer list length")
-			return
-		}
-
-		numPeers := len(peerListBytes) / 6
-		peerURLs := []string{}
-		for i := 0; i < numPeers; i++ {
-			ipParts := []string{}
-			for b := i * 6; b < (i*6)+4; b++ {
-				ipParts = append(ipParts, strconv.Itoa(int(peerListBytes[b])))
-			}
-			port := 256*int(peerListBytes[i*6+4]) + int(peerListBytes[i*6+5])
-			peerURLs = append(peerURLs, strings.Join(ipParts, ".")+":"+strconv.Itoa(port))
-		}
-
-		fmt.Println(strings.Join(peerURLs, "\n"))
-	} else if command == "handshake" {
-		filename := os.Args[2]
-		peerAddress := os.Args[3]
-		// peerParts := strings.Split(peerAddress, ":")
-		// peerIP, peerPort := peerParts[0], peerParts[1]
-
-		torrentFile, err := ParseTorrent(filename)
-		if err != nil {
-			fmt.Println(err.Error())
-			return
-		}
-
-		tcpConn, err := net.Dial("tcp", peerAddress)
-		if err != nil {
-			fmt.Println(err.Error())
-			return
-		}
-		defer tcpConn.Close()
-
-		handshake := make([]byte, 68)
-		handshake[0] = 19
-		copy(handshake[1:20], []byte("BitTorrent protocol"))
-		copy(handshake[20:28], []byte{0, 0, 0, 0, 0, 0, 0, 0})
-		copy(handshake[28:48], torrentFile.Info.Sha1Sum())
-		copy(handshake[48:68], []byte(PeerID))
-
-		// numBytesWritten, err := io.Copy(tcpConn, bytes.NewReader(handshake))
-		// if err != nil {
-		// 	fmt.Println("Error sending data:", err)
-		// 	return
-		// }
-
-		numBytesWritten, err := tcpConn.Write(handshake)
-		if err != nil {
-			fmt.Println(err.Error())
-			return
-		}
-
-		if numBytesWritten != 68 {
-			fmt.Printf("didn't write full ack. num bytes written: %d", numBytesWritten)
-			return
-		}
-
-		ack := make([]byte, 68)
-
-		numBytesRead, err := io.ReadAtLeast(tcpConn, ack, 68)
-
-		// tcpConn.SetDeadline(time.Now().Add(5 * time.Second))
-		// numBytesRead, err := tcpConn.Read(ack)
-		if err != nil {
-			fmt.Println(err.Error())
-			return
-		}
-
-		if numBytesRead != 68 {
-			fmt.Printf("wrong ack length: %d\n", numBytesRead)
-			return
-		}
-
-		if !bytes.Equal(handshake[0:20], ack[0:20]) {
-			fmt.Printf("invalid handshake ack header: %v\n", ack[0:20])
-			return
-		}
-
-		if !bytes.Equal(ack[28:48], handshake[28:48]) {
-			fmt.Println("invalid info hash in handshake ack")
-			return
-		}
-
-		trackerPeerID := ack[48:68]
-
-		fmt.Printf("Peer ID: %x\n", trackerPeerID)
-	} else {
-		fmt.Println("Unknown command: " + command)
-		os.Exit(1)
+	err := rootCmd.Execute()
+	if err != nil {
+		fmt.Println(err)
 	}
+}
+
+func SendHandshake(tcpConn net.Conn, torrentSha1Sum []byte) error {
+	handshake := make([]byte, 68)
+	copy(handshake[:20], HandshakeHeader)
+	copy(handshake[20:28], []byte{0, 0, 0, 0, 0, 0, 0, 0})
+	copy(handshake[28:48], torrentSha1Sum)
+	copy(handshake[48:68], []byte(PeerID))
+
+	numBytesWritten, err := tcpConn.Write(handshake)
+	if err != nil {
+		return err
+	}
+
+	if numBytesWritten != 68 {
+		return fmt.Errorf("didn't write full ack. num bytes written: %d", numBytesWritten)
+	}
+
+	return nil
+}
+
+func ReadHandshakeAck(tcpConn net.Conn, torrentSha1Sum []byte) ([]byte, error) {
+	ack := make([]byte, 68)
+
+	// tcpConn.SetDeadline(time.Now().Add(5 * time.Second))
+	// numBytesRead, err := tcpConn.Read(ack)
+	_, err := io.ReadAtLeast(tcpConn, ack, 68)
+	if err != nil {
+		fmt.Println(err.Error())
+		return nil, err
+	}
+
+	if !bytes.Equal(HandshakeHeader, ack[0:20]) {
+		return nil, fmt.Errorf("invalid handshake ack header: %v", ack[0:20])
+	}
+
+	if !bytes.Equal(ack[28:48], torrentSha1Sum) {
+		return nil, fmt.Errorf("invalid info hash in handshake ack")
+	}
+
+	trackerPeerID := ack[48:68]
+
+	return trackerPeerID, nil
 }
 
 func ParseTorrent(filename string) (*TorrentFile, error) {
@@ -246,7 +112,7 @@ func ParseTorrent(filename string) (*TorrentFile, error) {
 		piecesBytes := []byte(piecesString)
 		piecesFullLength := len(piecesBytes)
 		if piecesFullLength%20 != 0 {
-			return nil, fmt.Errorf("Invalid piece hashes length: %d\n", piecesFullLength)
+			return nil, fmt.Errorf("invalid piece hashes length: %d", piecesFullLength)
 		}
 
 		info := &TorrentInfo{
