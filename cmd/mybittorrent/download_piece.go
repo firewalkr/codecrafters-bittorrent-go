@@ -3,6 +3,7 @@ package main
 import (
 	// Uncomment this line to pass the first stage
 
+	"crypto/sha1"
 	"fmt"
 	"io"
 	"math"
@@ -126,7 +127,7 @@ var downloadPieceCmd = &cobra.Command{
 		messageIdBytes := make([]byte, 1)
 		var messageId byte
 
-		numBlocks := pieceLength / 16384
+		numBlocks := int(math.Ceil(float64(pieceLength) / 16384))
 		blocks := make([][]byte, numBlocks)
 		numBlocksWritten := 0
 
@@ -187,11 +188,11 @@ var downloadPieceCmd = &cobra.Command{
 					}
 					err := RequestPieceBlock(tcpConn, requestedPieceIndex, blockNumber, blockSize)
 					if err != nil {
-						fmt.Printf("failed to request block %d for piece %d: %q\n", blockNumber, requestedPieceIndex, err.Error())
+						fmt.Printf("failed to request block %d for piece %d: %q", blockNumber, requestedPieceIndex, err.Error())
 						return
 					}
 					remainingLength -= 16384
-					log.Debug().Msgf("requested block %d for piece %d\n", blockNumber, requestedPieceIndex)
+					log.Debug().Msgf("requested block %d for piece %d", blockNumber, requestedPieceIndex)
 				}
 			} else if messageId == PieceMessageID {
 				headers := make([]byte, 8)
@@ -211,11 +212,14 @@ var downloadPieceCmd = &cobra.Command{
 					fmt.Printf("requested piece index %d, but got a block for piece index %d\n", requestedPieceIndex, pieceIndex)
 					return
 				}
+				log.Debug().Msgf("received block for piece %d", pieceIndex)
 				beginOffset := byteSliceToInt(headers[4:8])
 				if beginOffset > pieceLength {
 					fmt.Printf("begin offset greater than piece length: %d\n", beginOffset)
 					return
 				}
+				log.Debug().Msgf("block begins at %d", beginOffset)
+				log.Debug().Msgf("block length is %d", blockLength)
 
 				block := make([]byte, blockLength)
 				_, err = io.ReadAtLeast(tcpConn, block, blockLength)
@@ -248,6 +252,20 @@ var downloadPieceCmd = &cobra.Command{
 				log.Debug().Msgf("found message id %d\n", messageId)
 				break
 			}
+		}
+
+		var allPieceBytes []byte
+		for _, b := range blocks {
+			allPieceBytes = append(allPieceBytes, b...)
+		}
+
+		hasher := sha1.New()
+		hasher.Write([]byte(allPieceBytes))
+		pieceHash := hasher.Sum(nil)
+
+		if fmt.Sprintf("%x", pieceHash) != torrent.Info.PieceHashes[requestedPieceIndex] {
+			fmt.Printf("hash mismatch, wanted %q, obtained %q\n", torrent.Info.PieceHashes[requestedPieceIndex], fmt.Sprintf("%x", pieceHash))
+			return
 		}
 
 		fmt.Printf("Piece %d downloaded to %s\n", requestedPieceIndex, outputPath)
