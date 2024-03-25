@@ -44,7 +44,7 @@ var downloadPieceCmd = &cobra.Command{
 	Use:  "download_piece path/to/torrent_file piece_index",
 	Args: cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
-		log := log.Level(zerolog.DebugLevel)
+		log := log.Level(zerolog.InfoLevel)
 		filename := args[0]
 		pieceIndexStr := args[1]
 
@@ -244,7 +244,7 @@ var downloadPieceCmd = &cobra.Command{
 					return
 				}
 
-				blockNumber := beginOffset / blockLength
+				blockNumber := beginOffset / 16384
 				blocks[blockNumber] = block
 				numBlocksWritten++
 				log.Debug().Msgf("wrote block %d", blockNumber)
