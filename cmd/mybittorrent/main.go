@@ -66,9 +66,9 @@ func ReadHandshakeAck(tcpConn net.Conn, torrentSha1Sum []byte) ([]byte, error) {
 		return nil, fmt.Errorf("invalid info hash in handshake ack")
 	}
 
-	trackerPeerID := ack[48:68]
+	remotePeerID := ack[48:68]
 
-	return trackerPeerID, nil
+	return remotePeerID, nil
 }
 
 func ParseTorrent(filename string) (*TorrentFile, error) {
