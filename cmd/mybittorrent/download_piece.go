@@ -44,7 +44,7 @@ var downloadPieceCmd = &cobra.Command{
 	Use:  "download_piece path/to/torrent_file piece_index",
 	Args: cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
-		log := log.Level(zerolog.InfoLevel)
+		log := log.Level(zerolog.DebugLevel)
 		filename := args[0]
 		pieceIndexStr := args[1]
 
