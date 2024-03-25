@@ -43,7 +43,7 @@ var downloadPieceCmd = &cobra.Command{
 	Use:  "download_piece path/to/torrent_file piece_index",
 	Args: cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
-		log := log.Level(zerolog.DebugLevel)
+		log := log.Level(zerolog.InfoLevel)
 		filename := args[0]
 		pieceIndexStr := args[1]
 
@@ -61,10 +61,10 @@ var downloadPieceCmd = &cobra.Command{
 		}
 
 		log.Debug().Msgf("%d", torrent.Info.Length)
-		log.Debug().Msgf(strings.Join(torrent.Info.PieceHashes(), ","))
+		log.Debug().Msgf(strings.Join(torrent.Info.PieceHashes, ","))
 		log.Debug().Msgf("%d", torrent.Info.PieceLength)
 
-		// fileLength := torrent.Info.Length
+		fileLength := torrent.Info.Length
 		// open file for writing
 		file, err := os.OpenFile(outputPath, os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
@@ -73,8 +73,14 @@ var downloadPieceCmd = &cobra.Command{
 		}
 		defer file.Close()
 
+		pieceLength := torrent.Info.PieceLength
+		// if it's the last piece, adjust the piece length
+		if requestedPieceIndex == torrent.Info.NumPieces-1 {
+			pieceLength = fileLength % pieceLength
+		}
+
 		// reserve space for 1 piece length
-		err = file.Truncate(int64(torrent.Info.PieceLength))
+		err = file.Truncate(int64(pieceLength))
 		if err != nil {
 			fmt.Printf("failed to truncate file: %s\n", err.Error())
 			return
@@ -120,7 +126,6 @@ var downloadPieceCmd = &cobra.Command{
 		messageIdBytes := make([]byte, 1)
 		var messageId byte
 
-		pieceLength := torrent.Info.PieceLength
 		numBlocks := pieceLength / 16384
 		blocks := make([][]byte, numBlocks)
 		numBlocksWritten := 0

@@ -33,7 +33,6 @@ var infoCmd = &cobra.Command{
 		fmt.Printf("Info Hash: %s\n", fmt.Sprintf("%x", infoSha1Sum))
 		fmt.Printf("Piece Length: %d\n", torrent.Info.PieceLength)
 
-		piecesHashes := torrent.Info.PieceHashes()
-		fmt.Printf("Piece Hashes:\n%s\n", strings.Join(piecesHashes, "\n"))
+		fmt.Printf("Piece Hashes:\n%s\n", strings.Join(torrent.Info.PieceHashes, "\n"))
 	},
 }

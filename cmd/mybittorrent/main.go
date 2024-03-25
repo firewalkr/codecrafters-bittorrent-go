@@ -121,6 +121,8 @@ func ParseTorrent(filename string) (*TorrentFile, error) {
 			PieceLength:  pieceLength,
 			piecesString: piecesString,
 		}
+		info.PieceHashes = info.parsePieceHashes()
+		info.NumPieces = len(info.PieceHashes)
 
 		return &TorrentFile{
 			Announce: announce,
@@ -140,10 +142,12 @@ type TorrentInfo struct {
 	decodedMap   BencodeMap
 	Length       int
 	PieceLength  int
+	PieceHashes  []string
+	NumPieces    int
 	piecesString string
 }
 
-func (info *TorrentInfo) PieceHashes() []string {
+func (info *TorrentInfo) parsePieceHashes() []string {
 	piecesBytes := []byte(info.piecesString)
 	piecesFullLength := len(piecesBytes)
 
