@@ -60,9 +60,9 @@ var downloadPieceCmd = &cobra.Command{
 			return
 		}
 
-		log.Trace().Msgf("%d", torrent.Info.Length)
-		log.Trace().Msgf(strings.Join(torrent.Info.PieceHashes(), ","))
-		log.Trace().Msgf("%d", torrent.Info.PieceLength)
+		log.Debug().Msgf("%d", torrent.Info.Length)
+		log.Debug().Msgf(strings.Join(torrent.Info.PieceHashes(), ","))
+		log.Debug().Msgf("%d", torrent.Info.PieceLength)
 
 		// fileLength := torrent.Info.Length
 		// open file for writing
@@ -94,7 +94,7 @@ var downloadPieceCmd = &cobra.Command{
 
 		randomPeerAddress := trackerInfo.Peers[rand.Intn(numPeers)]
 
-		log.Trace().Msgf("Chosen peer: %s", randomPeerAddress)
+		log.Debug().Msgf("Chosen peer: %s", randomPeerAddress)
 
 		tcpConn, err := net.Dial("tcp", randomPeerAddress)
 		if err != nil {
@@ -114,7 +114,7 @@ var downloadPieceCmd = &cobra.Command{
 			return
 		}
 
-		log.Trace().Msgf("Chosen peer id: %x", remotePeerIDBytes)
+		log.Debug().Msgf("Chosen peer id: %x", remotePeerIDBytes)
 
 		messageLengthBytes := make([]byte, 4)
 		messageIdBytes := make([]byte, 1)
@@ -133,7 +133,7 @@ var downloadPieceCmd = &cobra.Command{
 			}
 
 			messageLength := byteSliceToInt(messageLengthBytes)
-			log.Trace().Msgf("message length: %d", messageLength)
+			log.Debug().Msgf("message length: %d", messageLength)
 
 			if messageLength == 0 {
 				fmt.Println("got keepalive")
@@ -150,7 +150,7 @@ var downloadPieceCmd = &cobra.Command{
 
 			messageId = messageIdBytes[0]
 			if messageId == BitfieldMessageID {
-				log.Trace().Msg("found bitfield message")
+				log.Debug().Msg("found bitfield message")
 
 				payload := make([]byte, payloadLength)
 				_, err := io.ReadAtLeast(tcpConn, payload, payloadLength)
@@ -159,7 +159,7 @@ var downloadPieceCmd = &cobra.Command{
 					return
 				}
 
-				log.Trace().Msg(pretty.Sprint(payload))
+				log.Debug().Msg(pretty.Sprint(payload))
 
 				err = SendInterested(tcpConn)
 				if err != nil {
@@ -167,14 +167,14 @@ var downloadPieceCmd = &cobra.Command{
 					return
 				}
 			} else if messageId == ChokeMessageID {
-				log.Trace().Msgf("found choke message")
+				log.Debug().Msgf("found choke message")
 				time.Sleep(3 * time.Second)
 			} else if messageId == UnchokeMessageID {
-				log.Trace().Msgf("got unchoke message")
+				log.Debug().Msgf("got unchoke message")
 
 				remainingLength := pieceLength
 				for blockNumber := 0; blockNumber < numBlocks; blockNumber++ {
-					log.Trace().Msgf("requesting block %d for piece %d", blockNumber, requestedPieceIndex)
+					log.Debug().Msgf("requesting block %d for piece %d", blockNumber, requestedPieceIndex)
 					// min(x,y) is only go >1.21, and codecrafters are running this on 1.19 it seems
 					blockSize := remainingLength
 					if remainingLength > 16384 {
@@ -186,7 +186,7 @@ var downloadPieceCmd = &cobra.Command{
 						return
 					}
 					remainingLength -= 16384
-					log.Trace().Msgf("requested block %d for piece %d\n", blockNumber, requestedPieceIndex)
+					log.Debug().Msgf("requested block %d for piece %d\n", blockNumber, requestedPieceIndex)
 				}
 			} else if messageId == PieceMessageID {
 				headers := make([]byte, 8)
@@ -238,9 +238,9 @@ var downloadPieceCmd = &cobra.Command{
 				blockNumber := beginOffset / blockLength
 				blocks[blockNumber] = block
 				numBlocksWritten++
-				log.Trace().Msgf("wrote block %d", blockNumber)
+				log.Debug().Msgf("wrote block %d", blockNumber)
 			} else {
-				log.Trace().Msgf("found message id %d\n", messageId)
+				log.Debug().Msgf("found message id %d\n", messageId)
 				break
 			}
 		}
