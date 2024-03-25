@@ -20,7 +20,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var downloadOutputPath string
+var pieceDownloadOutputPath string
 
 const (
 	ChokeMessageID byte = iota
@@ -35,7 +35,7 @@ const (
 )
 
 func init() {
-	downloadPieceCmd.Flags().StringVarP(&downloadOutputPath, "output", "o", "", "--output path/to/output_file")
+	downloadPieceCmd.Flags().StringVarP(&pieceDownloadOutputPath, "output", "o", "", "--output path/to/output_file")
 	downloadPieceCmd.MarkFlagRequired("output")
 	rootCmd.AddCommand(downloadPieceCmd)
 }
@@ -53,7 +53,7 @@ var downloadPieceCmd = &cobra.Command{
 			fmt.Printf("failed to convert index to int: %q\n", pieceIndexStr)
 			return
 		}
-		outputPath := downloadOutputPath
+		outputPath := pieceDownloadOutputPath
 
 		torrent, err := ParseTorrent(filename)
 		if err != nil {
