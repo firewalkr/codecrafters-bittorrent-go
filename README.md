@@ -1,3 +1,10 @@
+This is a very basic bittorrent client developed for a codecrafers.io challenge.
+
+The download sections of the code in particular are very rough and this is in no way
+production ready. The BitTorrent tracker and peers used by codecrafters while testing
+this code were essentially working perfectly, i.e. all peers had complete file, and
+network conditions were flawless.
+
 [![progress-banner](https://backend.codecrafters.io/progress/bittorrent/71af6564-f848-4bbf-b6dc-d30d990b63a2)](https://app.codecrafters.io/users/firewalkr?r=2qF)
 
 This is a starting point for Go solutions to the
@@ -10,27 +17,3 @@ Protocol, pipelining and more.
 
 **Note**: If you're viewing this repo on GitHub, head over to
 [codecrafters.io](https://codecrafters.io) to try the challenge.
-
-# Passing the first stage
-
-The entry point for your BitTorrent implementation is in
-`cmd/mybittorrent/main.go`. Study and uncomment the relevant code, and push your
-changes to pass the first stage:
-
-```sh
-git add .
-git commit -m "pass 1st stage" # any msg
-git push origin master
-```
-
-Time to move on to the next stage!
-
-# Stage 2 & beyond
-
-Note: This section is for stages 2 and beyond.
-
-1. Ensure you have `go (1.19)` installed locally
-1. Run `./your_bittorrent.sh` to run your program, which is implemented in
-   `cmd/mybittorrent/main.go`.
-1. Commit your changes and run `git push origin master` to submit your solution
-   to CodeCrafters. Test output will be streamed to your terminal.
